@@ -8,9 +8,11 @@ var spawn = require('child_process').spawn;
 var CLIENT_ID = config.installed.client_id;
 var CLIENT_SECRET = config.installed.client_secret;
 var port = 3645;
-var REDIRECT_URL = "http://localhost:" + port +"/callback";
+var REDIRECT_URL = "http://localhost:" + port + "/callback";
 var oauth2Client = new OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
-google.options({ auth: oauth2Client });
+google.options({
+    auth: oauth2Client
+});
 
 
 var gmail = google.gmail('v1');
@@ -24,14 +26,14 @@ var scopes = [
     "https://www.googleapis.com/auth/gmail.readonly"
 ];
 
-if(!config.auth_code){
+if (!config.auth_code) {
 
     var server = restify.createServer({
         name: 'google-auth-callback',
     });
     server.use(restify.queryParser());
 
-    server.get('/callback', function(req, res, next){
+    server.get('/callback', function(req, res, next) {
         config.auth_code = req.query.code;
         fs.writeFile('./auth.json', JSON.stringify(config));
         startWatching();
@@ -45,39 +47,36 @@ if(!config.auth_code){
     });
 
     var command;
-    if(process.platform === 'linux'){
+    if (process.platform === 'linux') {
         command = 'xdg-open';
     }
-    if(process.platform === 'darwin'){
+    if (process.platform === 'darwin') {
         commmand = 'open';
     }
 
-    if(command){
+    if (command) {
         spawn(command, [url]);
-    }
-    else{
+    } else {
         console.log("Generate access token from this url \n", url);
     }
-}
-else{
+} else {
     startWatching();
 }
 
 var tokens;
 
-function startWatching(){
+function startWatching() {
     if (fs.existsSync('./tokens.json')) {
         tokens = require('./tokens.json');
-    }
-    else{
+    } else {
         console.log("Using authcode", config.auth_code);
         oauth2Client.getToken(config.auth_code, function(err, tks) {
             // Now tokens contains an access_token and an optional refresh_token. Save them.
-            if(err) {
+            if (err) {
                 console.log(err);
                 return;
             }
-            tokens =tks;
+            tokens = tks;
             console.log(tokens);
             fs.writeFile('./tokens.json', JSON.stringify(tokens));
 
@@ -89,50 +88,56 @@ function startWatching(){
 }
 
 
-function checkMail(){
-    gmail.users.messages.list({userId: "me", labelIds: ["UNREAD","INBOX"]}, function(err, response){
+function checkMail() {
+    gmail.users.messages.list({
+        userId: "me",
+        labelIds: ["UNREAD", "INBOX"]
+    }, function(err, response) {
         console.log("Retrieved list");
-        if(err){
+        if (err) {
             console.log(err);
             return;
         }
         console.log(response);
         var messages = response.messages;
         var unseen = false;
-        for(var i = 0; i< messages.length; i++){
-            if(!messageHash.hasOwnProperty(messages[i].id)){
+        for (var i = 0; i < messages.length; i++) {
+            if (!messageHash.hasOwnProperty(messages[i].id)) {
                 unseen = true;
                 unseenMessages.push(messages[i]);
-                messageHash[messages[i].id]= messages[i];
+                messageHash[messages[i].id] = messages[i];
             }
         }
-        if(unseen){
+        if (unseen) {
             console.log("You have new messages");
-            getMessage(unseenMessages[unseenMessages.length -1].id);
+            getMessage(unseenMessages[unseenMessages.length - 1].id);
         }
     });
 }
 
-function getMessage(messageId, cb){
-    gmail.users.messages.get({userId: "me", id: messageId}, function(err, response){
-        if(err){
+function getMessage(messageId, cb) {
+    gmail.users.messages.get({
+        userId: "me",
+        id: messageId
+    }, function(err, response) {
+        if (err) {
             console.log(err);
-            if(cb){
+            if (cb) {
                 cb(err);
             }
             return;
         }
 
         var parts = response.payload.parts;
-        var body=[];
-        for( var i = 0; i< parts.length ; i++){
-            console.log("part ", i+1);
+        var body = [];
+        for (var i = 0; i < parts.length; i++) {
+            console.log("part ", i + 1);
             console.log(atob(parts[i].body.data));
             body.push(atob(parts[i].body.data));
         }
-        if(cb){
+        if (cb) {
             cb(null, body);
         }
     });
-    
+
 }
