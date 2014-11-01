@@ -88,7 +88,7 @@ function startWatching() {
         });
     }
     oauth2Client.setCredentials(tokens);
-    setInterval(checkMail, 10000);
+    setInterval(checkMail, 5000);
 }
 
 
@@ -115,20 +115,41 @@ function checkMail() {
         }
         if (unseen) {
             getMessage(unseenMessages[unseenMessages.length - 1].id, function(err, message){
+                if(err){
+                    xal.error(err);
+                    return;
+                }
                 var getName = function(msg){
                     var headers = msg.payload.headers;
                     for(var i =0;i <headers.length;i++)  {
-                        if(header.name == "From" ){
-                            var name = header.value.split(" ");
-                            name = header.spice(0, name.length -1).join(" ");
+                        if(headers[i].name === 'From' ){
+                            var name = headers[i].value.split(" ");
+                            name = name.splice(0, name.length -1).join(" ");
+                            return name;
                         }
                     }
                 };
+
+                var getBody = function(response){
+                    
+                    var parts = response.payload.parts;
+                    var body = [];
+                    for (var i = 0; i < parts.length; i++) {
+                        xal.log.info("part ", i + 1);
+                        xal.log.info(atob(parts[i].body.data));
+                        body.push(atob(parts[i].body.data));
+                    }
+
+                };
+                messageHash[message.id].name = getName(message);
+                messageHash[message.id].body = getBody(message);
+                messageHash[message.id].message = message;
                 xal.log.info('You have new messages');
                 xal.createEvent('xi.event.output.text', function(state, done) {
                     xal.log.info({state: state}, 'created event');
 
-                    state.put('xi.event.output.text', 'You have new mail from', getName(message));
+                    state.put('xi.event.output.text', 'You have new mail from ' + messageHash[message.id].name);
+
                     done(state);
                 });
 
@@ -148,14 +169,6 @@ function getMessage(messageId, cb) {
                 cb(err);
             }
             return;
-        }
-
-        var parts = response.payload.parts;
-        var body = [];
-        for (var i = 0; i < parts.length; i++) {
-            xal.log.info("part ", i + 1);
-            xal.log.info(atob(parts[i].body.data));
-            body.push(atob(parts[i].body.data));
         }
         if (cb) {
             cb(null, response);
