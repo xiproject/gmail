@@ -1,3 +1,4 @@
+var xal = require('../../xal-javascript');
 var restify = require('restify');
 var google = require('googleapis');
 var OAuth2 = google.auth.OAuth2;
@@ -11,6 +12,7 @@ var port = 3645;
 var REDIRECT_URL = "http://localhost:" + port + "/callback";
 var oauth2Client = new OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
 google.options({
+    proxy: 'http://10.3.100.207:8080',
     auth: oauth2Client
 });
 
@@ -26,58 +28,60 @@ var scopes = [
     "https://www.googleapis.com/auth/gmail.readonly"
 ];
 
-if (!config.auth_code) {
 
-    var server = restify.createServer({
-        name: 'google-auth-callback',
-    });
-    server.use(restify.queryParser());
+function start(){
+    if (!config.auth_code) {
 
-    server.get('/callback', function(req, res, next) {
-        config.auth_code = req.query.code;
-        fs.writeFile('./auth.json', JSON.stringify(config));
-        startWatching();
-        res.send("Authenticated :)");
-        next();
-    });
-    server.listen(port);
-    var url = oauth2Client.generateAuthUrl({
-        //access_type: 'offline', // 'online' (default) or 'offline' (gets refresh_token)
-        scope: scopes // If you only need one scope you can pass it as string
-    });
+        var server = restify.createServer({
+            name: 'google-auth-callback',
+        });
+        server.use(restify.queryParser());
 
-    var command;
-    if (process.platform === 'linux') {
-        command = 'xdg-open';
-    }
-    if (process.platform === 'darwin') {
-        commmand = 'open';
-    }
+        server.get('/callback', function(req, res, next) {
+            config.auth_code = req.query.code;
+            fs.writeFile('./auth.json', JSON.stringify(config));
+            startWatching();
+            res.send("Authenticated :)");
+            next();
+        });
+        server.listen(port);
+        var url = oauth2Client.generateAuthUrl({
+            //access_type: 'offline', // 'online' (default) or 'offline' (gets refresh_token)
+            scope: scopes // If you only need one scope you can pass it as string
+        });
 
-    if (command) {
-        spawn(command, [url]);
+        var command;
+        if (process.platform === 'linux') {
+            command = 'xdg-open';
+        }
+        if (process.platform === 'darwin') {
+            commmand = 'open';
+        }
+
+        if (command) {
+            spawn(command, [url]);
+        } else {
+            xal.log.info("Generate access token from this url \n", url);
+        }
     } else {
-        console.log("Generate access token from this url \n", url);
+        startWatching();
     }
-} else {
-    startWatching();
 }
-
 var tokens;
 
 function startWatching() {
     if (fs.existsSync('./tokens.json')) {
         tokens = require('./tokens.json');
     } else {
-        console.log("Using authcode", config.auth_code);
+        xal.log.info("Using authcode", config.auth_code);
         oauth2Client.getToken(config.auth_code, function(err, tks) {
             // Now tokens contains an access_token and an optional refresh_token. Save them.
             if (err) {
-                console.log(err);
+                xal.log.info(err);
                 return;
             }
             tokens = tks;
-            console.log(tokens);
+            xal.log.info(tokens);
             fs.writeFile('./tokens.json', JSON.stringify(tokens));
 
 
@@ -93,15 +97,16 @@ function checkMail() {
         userId: "me",
         labelIds: ["UNREAD", "INBOX"]
     }, function(err, response) {
-        console.log("Retrieved list");
+        xal.log.info("Retrieving list");
         if (err) {
-            console.log(err);
+            xal.log.info(err);
             return;
         }
-        console.log(response);
+        xal.log.info(response);
         var messages = response.messages;
         var unseen = false;
-        for (var i = 0; i < messages.length; i++) {
+        //unseenMessages are ordered from oldest to newest
+        for (var i = messages.length -1; i>=0 ; i--) {
             if (!messageHash.hasOwnProperty(messages[i].id)) {
                 unseen = true;
                 unseenMessages.push(messages[i]);
@@ -109,8 +114,25 @@ function checkMail() {
             }
         }
         if (unseen) {
-            console.log("You have new messages");
-            getMessage(unseenMessages[unseenMessages.length - 1].id);
+            getMessage(unseenMessages[unseenMessages.length - 1].id, function(err, message){
+                var getName = function(msg){
+                    var headers = msg.payload.headers;
+                    for(var i =0;i <headers.length;i++)  {
+                        if(header.name == "From" ){
+                            var name = header.value.split(" ");
+                            name = header.spice(0, name.length -1).join(" ");
+                        }
+                    }
+                };
+                xal.log.info('You have new messages');
+                xal.createEvent('xi.event.output.text', function(state, done) {
+                    xal.log.info({state: state}, 'created event');
+
+                    state.put('xi.event.output.text', 'You have new mail from', getName(message));
+                    done(state);
+                });
+
+            });
         }
     });
 }
@@ -121,7 +143,7 @@ function getMessage(messageId, cb) {
         id: messageId
     }, function(err, response) {
         if (err) {
-            console.log(err);
+            xal.log.info(err);
             if (cb) {
                 cb(err);
             }
@@ -131,13 +153,18 @@ function getMessage(messageId, cb) {
         var parts = response.payload.parts;
         var body = [];
         for (var i = 0; i < parts.length; i++) {
-            console.log("part ", i + 1);
-            console.log(atob(parts[i].body.data));
+            xal.log.info("part ", i + 1);
+            xal.log.info(atob(parts[i].body.data));
             body.push(atob(parts[i].body.data));
         }
         if (cb) {
-            cb(null, body);
+            cb(null, response);
         }
     });
 
 }
+
+
+xal.start({name: "Gmail"}, function(){
+    start();
+});
