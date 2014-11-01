@@ -8,6 +8,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "atob": "^1.1.2",
     "googleapis": "^1.0.20",
     "restify": "^2.8.3"
   },

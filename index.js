@@ -3,6 +3,7 @@ var google = require('googleapis');
 var OAuth2 = google.auth.OAuth2;
 var config = require('./auth.json');
 var fs = require('fs');
+var atob = require('atob');
 var spawn = require('child_process').spawn;
 var CLIENT_ID = config.installed.client_id;
 var CLIENT_SECRET = config.installed.client_secret;
@@ -107,6 +108,31 @@ function checkMail(){
         }
         if(unseen){
             console.log("You have new messages");
+            getMessage(unseenMessages[unseenMessages.length -1].id);
         }
     });
+}
+
+function getMessage(messageId, cb){
+    gmail.users.messages.get({userId: "me", id: messageId}, function(err, response){
+        if(err){
+            console.log(err);
+            if(cb){
+                cb(err);
+            }
+            return;
+        }
+
+        var parts = response.payload.parts;
+        var body=[];
+        for( var i = 0; i< parts.length ; i++){
+            console.log("part ", i+1);
+            console.log(atob(parts[i].body.data));
+            body.push(atob(parts[i].body.data));
+        }
+        if(cb){
+            cb(null, body);
+        }
+    });
+    
 }
