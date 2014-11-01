@@ -1,6 +1,7 @@
 var xal = require('../../xal-javascript');
 var restify = require('restify');
 var google = require('googleapis');
+var os = require('os');
 var OAuth2 = google.auth.OAuth2;
 var config = require('./auth.json');
 var fs = require('fs');
@@ -33,7 +34,7 @@ function start(){
     if (!config.auth_code) {
 
         var server = restify.createServer({
-            name: 'google-auth-callback',
+            name: 'google-auth-callback'
         });
         server.use(restify.queryParser());
 
@@ -51,11 +52,11 @@ function start(){
         });
 
         var command;
-        if (process.platform === 'linux') {
+        if (os.platform() === 'linux') {
             command = 'xdg-open';
         }
-        if (process.platform === 'darwin') {
-            commmand = 'open';
+        else if (os.platform() === 'darwin') {
+            command = 'open';
         }
 
         if (command) {
@@ -88,7 +89,7 @@ function startWatching() {
         });
     }
     oauth2Client.setCredentials(tokens);
-    setInterval(checkMail, 5000);
+    setInterval(checkMail, 10000);
 }
 
 
@@ -97,12 +98,11 @@ function checkMail() {
         userId: "me",
         labelIds: ["UNREAD", "INBOX"]
     }, function(err, response) {
-        xal.log.info("Retrieving list");
+        xal.log.debug("Retrieving list");
         if (err) {
             xal.log.info(err);
             return;
         }
-        xal.log.info(response);
         var messages = response.messages;
         var unseen = false;
         //unseenMessages are ordered from oldest to newest
@@ -119,6 +119,7 @@ function checkMail() {
                     xal.error(err);
                     return;
                 }
+                xal.log.info(message);
                 var getName = function(msg){
                     var headers = msg.payload.headers;
                     for(var i =0;i <headers.length;i++)  {
@@ -128,19 +129,27 @@ function checkMail() {
                             return name;
                         }
                     }
+                    return null;
                 };
 
                 var getBody = function(response){
-                    
-                    var parts = response.payload.parts;
-                    var body = [];
-                    for (var i = 0; i < parts.length; i++) {
-                        xal.log.info("part ", i + 1);
-                        xal.log.info(atob(parts[i].body.data));
-                        body.push(atob(parts[i].body.data));
+                    if (response.payload.parts) {
+                        var parts = response.payload.parts;
+                        xal.log.info({response: response});
+                        var body = [];
+                        for (var i = 0; i < parts.length; i++) {
+                            xal.log.info("part ", i + 1);
+                            xal.log.info(atob(parts[i].body.data));
+                            body.push(atob(parts[i].body.data));
+                        }
+                        return body;
+                    } else if (response.payload.body) {
+                        return atob(response.payload.body.data);
+                    } else {
+                        return null;
                     }
-
                 };
+
                 messageHash[message.id].name = getName(message);
                 messageHash[message.id].body = getBody(message);
                 messageHash[message.id].message = message;
