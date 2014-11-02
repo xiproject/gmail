@@ -209,6 +209,21 @@ function getMessage(messageId, cb) {
 
 }
 
+function archive(messageID, cb){
+    gmail.users.messages.modify({id: messageID, userId: "me", resource: {
+        removeLabelIds: ["INBOX"]
+    }}, function(err, response){
+        if(err){
+            cb(err);
+            return;
+        }
+        else{
+            if(cb){
+                cb(null, response);
+            }
+        }
+    });
+}
 
 xal.start({
     name: "Gmail"
