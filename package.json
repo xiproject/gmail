@@ -10,7 +10,8 @@
   "dependencies": {
     "atob": "^1.1.2",
     "googleapis": "^1.0.20",
-    "restify": "^2.8.3"
+    "restify": "^2.8.3",
+    "underscore.string": "^2.3.3"
   },
   "devDependencies": {}
 }
