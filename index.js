@@ -24,6 +24,9 @@ function checkMail() {
             xal.log.info(err);
             return;
         }
+        if(response.resultSizeEstimate === 0){
+            return;
+        }
         var messages = response.messages;
         var unseen = false;
         //unseenMessages are ordered from oldest to newest
