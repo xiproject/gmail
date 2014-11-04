@@ -9,9 +9,8 @@ function getHeader(msg, header) {
     var headers = msg.payload.headers;
     for (var i = 0; i < headers.length; i++) {
         if (headers[i].name === header) {
-            var name = headers[i].value.split(" ");
-            name = name.splice(0, name.length - 1).join(" ");
-            return name;
+
+            return headers[i].value;
         }
     }
     return null;
@@ -77,7 +76,9 @@ function getMessage(messageId, cb) {
         }
         xal.log.info(message);
         var getName = function(msg) {
-            return getHeader(msg, "From");
+            var name = getHeader(msg, "From").split(" ");
+            name = name.splice(0, name.length - 1).join(" "); 
+            return name;
         };
 
         var getSubject = function(msg) {
