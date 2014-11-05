@@ -40,7 +40,9 @@ function checkMail() {
             //Retrieves only text mimeType for body
             getMessage(unseenMessages[unseenMessages.length - 1].id, function(err, message) {
                 if (err) {
-                    xal.error(err);
+                    xal.log.error(err);
+                    return;
+                }
                     return;
                 }
                 xal.log.info('You have new messages');
@@ -71,7 +73,7 @@ function getMessage(messageId, cb) {
         }
 
         if (err) {
-            xal.error(err);
+            xal.log.error(err);
             return;
         }
         xal.log.info(message);
