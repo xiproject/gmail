@@ -134,7 +134,8 @@ xal.on('xi.event.input.destination', function(state, next){
     if (dest && dest.value == xal.getId()) {
         xal.log.info({dest: dest}, 'Acting on InputManager\'s command');
         var text = state.get('xi.event.input.text')[0].value;
-        if(unseenMessages[unseenMessages.length - 1].subject){
+        
+        if(text.match(/.*read.*/) && unseenMessages[unseenMessages.length - 1].subject){
             state.put('xi.event.input.destination', xal.getId());
             state.put('xi.event.output.text', 'The subject is ' + unseenMessages[unseenMessages.length - 1].subject);
         }
