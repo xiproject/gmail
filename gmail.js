@@ -3,18 +3,24 @@ var restify = require('restify');
 var google = require('googleapis');
 var os = require('os');
 var OAuth2 = google.auth.OAuth2;
-var config = require('./auth.json');
-var CLIENT_ID = config.installed.client_id;
-var CLIENT_SECRET = config.installed.client_secret;
+try {
+    var auth = require('./auth.json');
+} catch (e) {
+    xal.log.fatal('auth.json not found. Procure the API key from [Gmail](https://console.developers.google.com/) and place it in auth.json. See the README for more details');
+    process.exit(1);
+}
+var CLIENT_ID = auth.installed.client_id;
+var CLIENT_SECRET = auth.installed.client_secret;
 var port = 3645;
 var REDIRECT_URL = "http://localhost:" + port + "/callback";
 var fs = require('fs');
 var spawn = require('child_process').spawn;
 var oauth2Client = new OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
+
 google.options({
-    proxy: 'http://10.3.100.207:8080',
     auth: oauth2Client
 });
+
 var gmail = google.gmail('v1');
 var scopes = [
     "https://mail.google.com/",
@@ -31,8 +37,8 @@ function start(cb) {
         if (fs.existsSync('./tokens.json')) {
             tokens = require('./tokens.json');
         } else {
-            xal.log.info("Using authcode", config.auth_code);
-            oauth2Client.getToken(config.auth_code, function(err, tks) {
+            xal.log.info("Using authcode", auth.auth_code);
+            oauth2Client.getToken(auth.auth_code, function(err, tks) {
                 // Now tokens contains an access_token and an optional refresh_token. Save them.
                 if (err) {
                     xal.log.info(err);
@@ -46,7 +52,7 @@ function start(cb) {
         oauth2Client.setCredentials(tokens);
     };
     
-    if (!config.auth_code) {
+    if (!auth.auth_code) {
 
         var server = restify.createServer({
             name: 'google-auth-callback'
@@ -54,8 +60,8 @@ function start(cb) {
         server.use(restify.queryParser());
 
         server.get('/callback', function(req, res, next) {
-            config.auth_code = req.query.code;
-            fs.writeFile('./auth.json', JSON.stringify(config));
+            auth.auth_code = req.query.code;
+            fs.writeFile('./auth.json', JSON.stringify(auth));
             cb();
             res.send("Authenticated :)");
             next();
