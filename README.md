@@ -38,3 +38,6 @@ In either case, you end up on the **Credentials** page and can create your proje
 node index.js --logfile gmail.log 2>&1 | bunyan
 ```
 - On the first run, the agent will open a browser window to login. If you later wish to change the signed-in account, remove `tokens.json` from the agent folder.
+
+## License
+GPLv3
