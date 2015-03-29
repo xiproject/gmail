@@ -82,7 +82,7 @@ function getMessage(messageId, cb) {
         xal.log.info(message);
         var getName = function(msg) {
             var name = getHeader(msg, "From").split(" ");
-            name = name.splice(0, name.length - 1).join(" "); 
+            name = name.splice(0, name.length - 1).join(" ");
             return name;
         };
 
@@ -134,10 +134,13 @@ xal.on('xi.event.input.destination', function(state, next){
     if (dest && dest.value == xal.getId()) {
         xal.log.info({dest: dest}, 'Acting on InputManager\'s command');
         var text = state.get('xi.event.input.text')[0].value;
-        
-        if(text.match(/.*read.*/) && unseenMessages[unseenMessages.length - 1].subject){
+
+        if(text.match(/.*subject.*/) && unseenMessages[unseenMessages.length - 1].subject){
             state.put('xi.event.input.destination', xal.getId());
             state.put('xi.event.output.text', 'The subject is ' + unseenMessages[unseenMessages.length - 1].subject);
+        } else if(text.match(/.*read.*/) && unseenMessages[unseenMessages.length - 1].subject){
+            state.put('xi.event.input.destination', xal.getId());
+            state.put('xi.event.output.text', 'The mail says ' + unseenMessages[unseenMessages.length - 1].body[0].substring(0,100));
         }
     }
     next(state);
