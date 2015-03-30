@@ -5,7 +5,7 @@ var atob = require('atob');
 var gmail = require('./gmail');
 var messageHash = {};
 var unseenMessages = [];
-var inputManager;
+var lastMailTime;
 function getHeader(msg, header) {
     var headers = msg.payload.headers;
     for (var i = 0; i < headers.length; i++) {
@@ -49,6 +49,7 @@ function checkMail() {
                     return;
                 }
                 xal.log.info('You have new messages');
+                lastMailTime = new Date();
                 xal.createEvent('xi.event.output.text', function(state, done) {
                     xal.log.info({
                         state: state
@@ -124,27 +125,17 @@ function getMessage(messageId, cb) {
 }
 
 //TODO: assuming stuff
-xal.on('xi.event.input.destination', function(state, next){
-    var dest = _.reduce(state.get('xi.event.input.destination'), function(memo, dest) {
-        if (dest.source === inputManager.id) {
-            memo = dest;
-        }
-        return memo;
-    }, null);
-    if (dest && dest.value == xal.getId()) {
-        xal.log.info({dest: dest}, 'Acting on InputManager\'s command');
+xal.on('xi.event.input.text', function(state, next){
+    if (new Date() - lastMailTime < 60*1000){
+        lastMailTime = new Date();
         var text = state.get('xi.event.input.text')[0].value;
-
         if(text.match(/.*subject.*/) && unseenMessages[unseenMessages.length - 1].subject){
-            state.put('xi.event.input.destination', xal.getId());
             state.put('xi.event.output.text', 'The subject is ' + unseenMessages[unseenMessages.length - 1].subject);
         } else if(text.match(/.*read.*/) && unseenMessages[unseenMessages.length - 1].subject){
-            state.put('xi.event.input.destination', xal.getId());
             state.put('xi.event.output.text', 'The mail says ' + unseenMessages[unseenMessages.length - 1].body[0].substring(0,100));
         }
     }
     next(state);
-
 });
 
 xal.start({
@@ -152,14 +143,5 @@ xal.start({
 }, function() {
     gmail.start(function(){
         setInterval(checkMail, 10000);
-    });
-    xal.getAgent({name: 'InputManager'}, function(err, agent) {
-        if (err) {
-            xal.log.fatal(err);
-        } else if (agent === null) {
-            xal.log.fatal('InputManager is required');
-        } else {
-            inputManager = agent;
-        }
     });
 });
