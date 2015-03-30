@@ -29,44 +29,39 @@ var scopes = [
     "https://www.googleapis.com/auth/gmail.readonly"
 ];
 
-var tokens;
-//gets auth_code if auth_code not set
+
+
 function start(cb) {
-
-    var initializeTokens = function(){
-        if (fs.existsSync('./tokens.json')) {
-            tokens = require('./tokens.json');
-        } else {
-            xal.log.info("Using authcode", auth.auth_code);
-            oauth2Client.getToken(auth.auth_code, function(err, tks) {
-                // Now tokens contains an access_token and an optional refresh_token. Save them.
-                if (err) {
-                    xal.log.info(err);
-                    return;
-                }
-                tokens = tks;
-                xal.log.info(tokens);
-                fs.writeFile('./tokens.json', JSON.stringify(tokens));
-            });
-        }
+    var tokens;
+    if (fs.existsSync('./tokens.json')) {
+        tokens = require('./tokens.json');
         oauth2Client.setCredentials(tokens);
-    };
-    
-    if (!auth.auth_code) {
-
+        cb();
+    } else {
         var server = restify.createServer({
             name: 'google-auth-callback'
         });
         server.use(restify.queryParser());
 
         server.get('/callback', function(req, res, next) {
-            auth.auth_code = req.query.code;
-            fs.writeFile('./auth.json', JSON.stringify(auth));
-            cb();
-            res.send("Authenticated :)");
+            res.send("Authenticated. You can close this window now.");
+            xal.debug.info('Requesting tokens');
+            oauth2Client.getToken(req.query.code, function(err, tks) {
+                // Now tokens contains an access_token and an optional refresh_token. Save them.
+                if (err) {
+                    xal.log.info(err);
+                    return;
+                }
+                xal.debug.log('Received tokens');
+                tokens = tks;
+                fs.writeFile('./tokens.json', JSON.stringify(tokens));
+                oauth2Client.setCredentials(tokens);
+                cb();
+
+            });
             next();
-            intializeTokens();
             server.stop();
+
         });
         server.listen(port);
         var url = oauth2Client.generateAuthUrl({
@@ -86,48 +81,46 @@ function start(cb) {
         } else {
             xal.log.info("Generate access token from this url \n", url);
         }
-    } else {
-        initializeTokens();
-        cb();
-
     }
-
-    
 }
 
 
-function archive(messageID, cb){
-    gmail.users.messages.modify({id: messageID, userId: "me", resource: {
-        removeLabelIds: ["INBOX"]
-    }}, function(err, response){
-        if(err){
+function archive(messageID, cb) {
+    gmail.users.messages.modify({
+        id: messageID,
+        userId: "me",
+        resource: {
+            removeLabelIds: ["INBOX"]
+        }
+    }, function(err, response) {
+        if (err) {
             cb(err);
             return;
-        }
-        else{
-            if(cb){
+        } else {
+            if (cb) {
                 cb(null, response);
             }
         }
     });
 }
 
-function getMessage(messageID, cb){
+function getMessage(messageID, cb) {
     gmail.users.messages.get({
         userId: "me",
         id: messageID
-    }, function(err, response){
-        cb(err,response);
-    } );
-    
+    }, function(err, response) {
+        cb(err, response);
+    });
+
 }
 
-function getUnreadMessages(cb){
+function getUnreadMessages(cb) {
     gmail.users.messages.list({
         userId: "me",
-        labelIds: ["UNREAD", "INBOX"] }, function(err, response){
-            cb(err,response);
-        }   );
+        labelIds: ["UNREAD", "INBOX"]
+    }, function(err, response) {
+        cb(err, response);
+    });
 }
 
 exports.start = start;
